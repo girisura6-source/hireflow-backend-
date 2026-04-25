@@ -3,7 +3,7 @@ import sqlite3
 conn = sqlite3.connect("jobs.db", check_same_thread=False)
 cursor = conn.cursor()
 
-# Create tables
+# Create users table
 cursor.execute("""
 CREATE TABLE IF NOT EXISTS users (
     username TEXT PRIMARY KEY,
@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS users (
 )
 """)
 
+# Create jobs table
 cursor.execute("""
 CREATE TABLE IF NOT EXISTS jobs (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
