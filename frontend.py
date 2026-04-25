@@ -1,9 +1,12 @@
 import streamlit as st
-import requests
 
-API_URL = "https://hireflow-api.onrender.com"
+st.set_page_config(page_title="HireFlow AI", layout="centered")
 
 st.title("🚀 HireFlow AI - Job Tracker")
+
+# Memory storage
+if "jobs" not in st.session_state:
+    st.session_state.jobs = []
 
 # MENU
 menu = st.sidebar.selectbox("Menu", ["Add Job", "View Jobs", "Resume Analyzer"])
@@ -17,78 +20,40 @@ if menu == "Add Job":
     status = st.selectbox("Status", ["Applied", "Interview", "Rejected"])
 
     if st.button("Submit"):
-        if not company or not role:
-            st.warning("Please fill all fields")
+        if company.strip() == "" or role.strip() == "":
+            st.warning("⚠️ Fill all fields")
         else:
-            try:
-                response = requests.post(f"{API_URL}/add-job", json={
-                    "company": company,
-                    "role": role,
-                    "status": status
-                })
-
-                st.write("Status Code:", response.status_code)
-                st.write("Response:", response.text)
-
-                if response.status_code == 200:
-                    st.success("Job added successfully")
-                else:
-                    st.error("Failed to add job")
-
-            except Exception as e:
-                st.error(f"Error: {e}")
+            st.session_state.jobs.append({
+                "company": company,
+                "role": role,
+                "status": status
+            })
+            st.success("✅ Job added successfully")
 
 # ---------------- VIEW JOBS ----------------
 elif menu == "View Jobs":
     st.header("All Applications")
 
-    # Debug button
-    if st.button("Test API"):
-        try:
-            res = requests.get(f"{API_URL}/get-jobs")
-            st.write("Status Code:", res.status_code)
-            st.write("Response:", res.text)
-        except Exception as e:
-            st.error(f"Error: {e}")
+    if len(st.session_state.jobs) == 0:
+        st.info("No jobs added yet")
+    else:
+        for job in st.session_state.jobs:
+            st.write(
+                f"🏢 {job['company']} | "
+                f"💼 {job['role']} | "
+                f"📌 {job['status']}"
+            )
 
-    # Fetch jobs safely
-    try:
-        response = requests.get(f"{API_URL}/get-jobs")
-
-        if response.status_code == 200:
-            jobs = response.json()
-
-            if not jobs:
-                st.info("No jobs found. Add a job first.")
-            else:
-                for job in jobs:
-                    st.write(f"🏢 {job.get('company')} | 💼 {job.get('role')} | 📌 {job.get('status')}")
-        else:
-            st.error("Failed to fetch jobs")
-
-    except Exception as e:
-        st.error(f"Error: {e}")
-
-# ---------------- AI RESUME ----------------
+# ---------------- RESUME ANALYZER ----------------
 elif menu == "Resume Analyzer":
     st.header("AI Resume Analyzer")
 
     resume = st.text_area("Paste Resume Text")
 
     if st.button("Analyze"):
-        if not resume:
-            st.warning("Please paste resume text")
+        if not resume.strip():
+            st.warning("Paste resume text first")
         else:
-            try:
-                response = requests.post(f"{API_URL}/analyze-resume", json={
-                    "resume_text": resume
-                })
-
-                if response.status_code == 200:
-                    st.write("Result:")
-                    st.success(response.json().get("result", "No result"))
-                else:
-                    st.error("Analysis failed")
-
-            except Exception as e:
-                st.error(f"Error: {e}")
+            # Simple analysis (no API needed)
+            words = len(resume.split())
+            st.success(f"📄 Resume has {words} words")
