@@ -1,5 +1,6 @@
 import streamlit as st
 import hashlib
+import pandas as pd
 from database import conn, cursor
 
 st.set_page_config(page_title="HireFlow AI", layout="centered")
@@ -26,32 +27,37 @@ if not st.session_state.logged_in:
     username = st.text_input("Username")
     password = st.text_input("Password", type="password")
 
+    # SIGNUP
     if option == "Signup":
         if st.button("Create Account"):
             if not username or not password:
-                st.warning("Fill all fields")
+                st.warning("⚠️ Fill all fields")
             else:
                 hashed = hash_password(password)
                 try:
                     cursor.execute("INSERT INTO users VALUES (?, ?)", (username, hashed))
                     conn.commit()
-                    st.success("Account created! Login now")
+                    st.success("✅ Account created! Please login")
                 except:
-                    st.error("User already exists")
+                    st.error("❌ User already exists")
 
+    # LOGIN
     if option == "Login":
         if st.button("Login"):
             hashed = hash_password(password)
-            cursor.execute("SELECT * FROM users WHERE username=? AND password=?", (username, hashed))
+            cursor.execute(
+                "SELECT * FROM users WHERE username=? AND password=?",
+                (username, hashed)
+            )
             user = cursor.fetchone()
 
             if user:
                 st.session_state.logged_in = True
                 st.session_state.user = username
-                st.success("Login successful")
+                st.success("✅ Login successful")
                 st.rerun()
             else:
-                st.error("Invalid credentials")
+                st.error("❌ Invalid credentials")
 
 # ---------------- MAIN APP ----------------
 else:
@@ -62,49 +68,97 @@ else:
         st.session_state.user = None
         st.rerun()
 
-    menu = st.sidebar.selectbox("Menu", ["Add Job", "View Jobs", "Resume Analyzer"])
+    menu = st.sidebar.selectbox(
+        "Menu",
+        ["Dashboard", "Add Job", "View Jobs", "Resume Analyzer"]
+    )
+
+    # ---------------- DASHBOARD ----------------
+    if menu == "Dashboard":
+        st.header("📊 Dashboard")
+
+        cursor.execute(
+            "SELECT company, role, status FROM jobs WHERE username=?",
+            (st.session_state.user,)
+        )
+        jobs = cursor.fetchall()
+
+        if not jobs:
+            st.info("No data available")
+        else:
+            df = pd.DataFrame(jobs, columns=["Company", "Role", "Status"])
+
+            total = len(df)
+            applied = (df["Status"] == "Applied").sum()
+            interview = (df["Status"] == "Interview").sum()
+            rejected = (df["Status"] == "Rejected").sum()
+
+            col1, col2, col3, col4 = st.columns(4)
+            col1.metric("Total", total)
+            col2.metric("Applied", applied)
+            col3.metric("Interview", interview)
+            col4.metric("Rejected", rejected)
+
+            st.divider()
+
+            st.subheader("📈 Status Distribution")
+            st.bar_chart(df["Status"].value_counts())
 
     # ---------------- ADD JOB ----------------
-    if menu == "Add Job":
-        st.header("Add Job")
+    elif menu == "Add Job":
+        st.header("➕ Add Job")
 
-        company = st.text_input("Company")
+        company = st.text_input("Company Name")
         role = st.text_input("Role")
         status = st.selectbox("Status", ["Applied", "Interview", "Rejected"])
 
         if st.button("Submit"):
-            if not company or not role:
-                st.warning("Fill all fields")
+            company_clean = company.strip()
+            role_clean = role.strip()
+
+            if company_clean == "" or role_clean == "":
+                st.warning("⚠️ Fill all fields")
             else:
                 cursor.execute(
                     "INSERT INTO jobs (username, company, role, status) VALUES (?, ?, ?, ?)",
-                    (st.session_state.user, company, role, status)
+                    (st.session_state.user, company_clean, role_clean, status)
                 )
                 conn.commit()
-                st.success("Job added")
+
+                st.success(f"✅ Job added as '{status}'")
 
     # ---------------- VIEW JOBS ----------------
     elif menu == "View Jobs":
-        st.header("Your Jobs")
+        st.header("📋 Your Jobs")
 
-        cursor.execute("SELECT company, role, status FROM jobs WHERE username=?", (st.session_state.user,))
+        cursor.execute(
+            "SELECT company, role, status FROM jobs WHERE username=?",
+            (st.session_state.user,)
+        )
         jobs = cursor.fetchall()
 
         if not jobs:
             st.info("No jobs found")
         else:
             for job in jobs:
-                st.write(f"🏢 {job[0]} | 💼 {job[1]} | 📌 {job[2]}")
+                company, role, status = job
+
+                if status == "Applied":
+                    st.write(f"🟡 🏢 {company} | 💼 {role} | 📌 {status}")
+                elif status == "Interview":
+                    st.write(f"🟢 🏢 {company} | 💼 {role} | 📌 {status}")
+                elif status == "Rejected":
+                    st.write(f"🔴 🏢 {company} | 💼 {role} | 📌 {status}")
 
     # ---------------- RESUME ANALYZER ----------------
     elif menu == "Resume Analyzer":
-        st.header("Resume Analyzer")
+        st.header("🤖 Resume Analyzer")
 
-        resume = st.text_area("Paste Resume")
+        resume = st.text_area("Paste Resume Text")
 
         if st.button("Analyze"):
-            if not resume:
-                st.warning("Paste resume first")
+            if not resume.strip():
+                st.warning("⚠️ Paste resume text first")
             else:
                 words = len(resume.split())
-                st.success(f"Resume has {words} words")
+                st.success(f"📄 Resume has {words} words")
