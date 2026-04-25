@@ -5,7 +5,7 @@ from database import conn, cursor
 
 st.set_page_config(page_title="HireFlow AI", layout="centered")
 
-st.title("🚀 HireFlow AI - Job Tracker")
+st.title("🚀 HireFlow AI - Job Tracker (Shared)")
 
 # ---------------- SESSION ----------------
 if "logged_in" not in st.session_state:
@@ -75,12 +75,9 @@ else:
 
     # ---------------- DASHBOARD ----------------
     if menu == "Dashboard":
-        st.header("📊 Dashboard")
+        st.header("📊 Dashboard (All Users Data)")
 
-        cursor.execute(
-            "SELECT company, role, status FROM jobs WHERE username=?",
-            (st.session_state.user,)
-        )
+        cursor.execute("SELECT company, role, status FROM jobs")
         jobs = cursor.fetchall()
 
         if not jobs:
@@ -100,7 +97,6 @@ else:
             col4.metric("Rejected", rejected)
 
             st.divider()
-
             st.subheader("📈 Status Distribution")
             st.bar_chart(df["Status"].value_counts())
 
@@ -113,15 +109,12 @@ else:
         status = st.selectbox("Status", ["Applied", "Interview", "Rejected"])
 
         if st.button("Submit"):
-            company_clean = company.strip()
-            role_clean = role.strip()
-
-            if company_clean == "" or role_clean == "":
+            if not company.strip() or not role.strip():
                 st.warning("⚠️ Fill all fields")
             else:
                 cursor.execute(
                     "INSERT INTO jobs (username, company, role, status) VALUES (?, ?, ?, ?)",
-                    (st.session_state.user, company_clean, role_clean, status)
+                    (st.session_state.user, company.strip(), role.strip(), status)
                 )
                 conn.commit()
 
@@ -129,26 +122,23 @@ else:
 
     # ---------------- VIEW JOBS ----------------
     elif menu == "View Jobs":
-        st.header("📋 Your Jobs")
+        st.header("📋 All Jobs (Shared)")
 
-        cursor.execute(
-            "SELECT company, role, status FROM jobs WHERE username=?",
-            (st.session_state.user,)
-        )
+        cursor.execute("SELECT username, company, role, status FROM jobs")
         jobs = cursor.fetchall()
 
         if not jobs:
             st.info("No jobs found")
         else:
             for job in jobs:
-                company, role, status = job
+                user, company, role, status = job
 
                 if status == "Applied":
-                    st.write(f"🟡 🏢 {company} | 💼 {role} | 📌 {status}")
+                    st.write(f"🟡 👤 {user} | 🏢 {company} | 💼 {role} | 📌 {status}")
                 elif status == "Interview":
-                    st.write(f"🟢 🏢 {company} | 💼 {role} | 📌 {status}")
+                    st.write(f"🟢 👤 {user} | 🏢 {company} | 💼 {role} | 📌 {status}")
                 elif status == "Rejected":
-                    st.write(f"🔴 🏢 {company} | 💼 {role} | 📌 {status}")
+                    st.write(f"🔴 👤 {user} | 🏢 {company} | 💼 {role} | 📌 {status}")
 
     # ---------------- RESUME ANALYZER ----------------
     elif menu == "Resume Analyzer":
